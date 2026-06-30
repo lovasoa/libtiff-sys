@@ -75,6 +75,10 @@ fn build_bundled_libtiff() -> PathBuf {
         .define("webp", "OFF")
         .define("CMAKE_POSITION_INDEPENDENT_CODE", "ON");
 
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("linux") {
+        config.define("CMAKE_REQUIRED_LIBRARIES", "m");
+    }
+
     let dst = config.build();
 
     println!("cargo:rustc-link-search=native={}", dst.join("lib").display());

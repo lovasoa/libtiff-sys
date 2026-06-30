@@ -128,7 +128,6 @@ jobs:
             packages: gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
             linker: aarch64-linux-gnu-gcc
             cxx: aarch64-linux-gnu-g++
-            cmake_args: -DCMAKE_REQUIRED_LIBRARIES=m
           - os: macos-latest
             target: aarch64-apple-darwin
           - os: windows-latest
@@ -159,4 +158,3 @@ jobs:
         env:
           LIBTIFF_4_NO_PKG_CONFIG: '1'
           LIBTIFF_NO_PKG_CONFIG: '1'
-          CMAKE_ARGS: ${{ matrix.cmake_args }}
