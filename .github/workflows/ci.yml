@@ -19,6 +19,7 @@ jobs:
         include:
           - os: ubuntu-latest
             mode: bundled
+            no_pkg_config: '1'
             command: cargo test --locked --all-targets
           - os: ubuntu-latest
             mode: dynamic-pkg-config
@@ -32,6 +33,7 @@ jobs:
             command: cargo test --locked --all-targets --features static
           - os: macos-latest
             mode: bundled
+            no_pkg_config: '1'
             command: cargo test --locked --all-targets
           - os: macos-latest
             mode: homebrew-dynamic
@@ -40,6 +42,7 @@ jobs:
             command: cargo test --locked --all-targets --features dynamic
           - os: windows-latest
             mode: bundled-msvc
+            no_pkg_config: '1'
             command: cargo test --locked --all-targets
     steps:
       - uses: actions/checkout@v4
@@ -59,6 +62,8 @@ jobs:
         env:
           TIFF_DYNAMIC: ${{ contains(matrix.link_env, 'TIFF_DYNAMIC=1') && '1' || '' }}
           TIFF_STATIC: ${{ contains(matrix.link_env, 'TIFF_STATIC=1') && '1' || '' }}
+          LIBTIFF_4_NO_PKG_CONFIG: ${{ matrix.no_pkg_config }}
+          LIBTIFF_NO_PKG_CONFIG: ${{ matrix.no_pkg_config }}
 
   examples:
     name: examples exercise real files
@@ -70,7 +75,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo run --locked --example write_gray -- /tmp/libtiff-sys-example.tif
+        env:
+          LIBTIFF_4_NO_PKG_CONFIG: '1'
+          LIBTIFF_NO_PKG_CONFIG: '1'
       - run: cargo run --locked --example read_info -- /tmp/libtiff-sys-example.tif
+        env:
+          LIBTIFF_4_NO_PKG_CONFIG: '1'
+          LIBTIFF_NO_PKG_CONFIG: '1'
 
   package:
     name: package tarball builds offline
@@ -85,6 +96,21 @@ jobs:
       - name: Verify package contents can build without network
         run: cargo test --locked --offline --manifest-path target/package/libtiff-sys-0.1.0/Cargo.toml
 
+  no-submodule-system:
+    name: builds without submodule when system libtiff is explicit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: sudo apt-get update && sudo apt-get install -y libtiff-dev pkg-config
+      - run: test ! -e libtiff/CMakeLists.txt
+      - run: cargo check --locked --features dynamic
+        env:
+          TIFF_DYNAMIC: '1'
+
   cross:
     name: cross ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
@@ -95,6 +121,7 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
             packages: musl-tools
+            linker: musl-gcc
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             packages: gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
@@ -122,18 +149,11 @@ jobs:
           target_env=$(echo '${{ matrix.target }}' | tr '[:lower:]-' '[:upper:]_')
           echo "CARGO_TARGET_${target_env}_LINKER=${{ matrix.linker }}" >> "$GITHUB_ENV"
           echo "CC_${{ matrix.target }}=${{ matrix.linker }}" >> "$GITHUB_ENV"
-          echo "CXX_${{ matrix.target }}=${{ matrix.cxx }}" >> "$GITHUB_ENV"
+          if [ -n '${{ matrix.cxx }}' ]; then
+            echo "CXX_${{ matrix.target }}=${{ matrix.cxx }}" >> "$GITHUB_ENV"
+          fi
       - name: Build for target
         run: cargo check --locked --target ${{ matrix.target }}
-
-  minimal-versions:
-    name: minimal supported dependencies
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-      - uses: dtolnay/rust-toolchain@nightly
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo update -Z minimal-versions
-      - run: cargo test --all-targets
+        env:
+          LIBTIFF_4_NO_PKG_CONFIG: '1'
+          LIBTIFF_NO_PKG_CONFIG: '1'

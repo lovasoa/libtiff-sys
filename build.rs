@@ -58,11 +58,21 @@ fn try_pkg_config(link_static: bool) -> Option<PathBuf> {
 fn build_bundled_libtiff() -> PathBuf {
     let dst = cmake::Config::new("libtiff")
         .define("BUILD_SHARED_LIBS", "OFF")
+        .define("CMAKE_PROJECT_libtiff_LANGUAGES", "C")
         .define("tiff-tools", "OFF")
         .define("tiff-tests", "OFF")
         .define("tiff-contrib", "OFF")
         .define("tiff-docs", "OFF")
         .define("tiff-deprecated", "OFF")
+        .define("zlib", "OFF")
+        .define("deflate", "OFF")
+        .define("jpeg", "OFF")
+        .define("jbig", "OFF")
+        .define("lerc", "OFF")
+        .define("lzma", "OFF")
+        .define("zstd", "OFF")
+        .define("webp", "OFF")
+        .define("cxx", "OFF")
         .define("CMAKE_POSITION_INDEPENDENT_CODE", "ON")
         .build();
 
