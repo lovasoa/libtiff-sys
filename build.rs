@@ -1,4 +1,5 @@
 use std::env;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 fn main() {
@@ -56,7 +57,8 @@ fn try_pkg_config(link_static: bool) -> Option<PathBuf> {
 }
 
 fn build_bundled_libtiff() -> PathBuf {
-    let mut config = cmake::Config::new("libtiff");
+    let source_dir = prepare_bundled_libtiff_source();
+    let mut config = cmake::Config::new(&source_dir);
     config
         .define("BUILD_SHARED_LIBS", "OFF")
         .define("tiff-tools", "OFF")
@@ -86,6 +88,36 @@ fn build_bundled_libtiff() -> PathBuf {
     print_bundled_link_lib();
 
     dst.join("include")
+}
+
+fn prepare_bundled_libtiff_source() -> PathBuf {
+    let out_dir = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR is set by Cargo"));
+    let source_dir = out_dir.join("libtiff-src");
+    if source_dir.exists() {
+        fs::remove_dir_all(&source_dir).expect("failed to clean bundled libtiff source copy");
+    }
+    copy_dir(Path::new("libtiff"), &source_dir);
+
+    let cmake_lists = source_dir.join("CMakeLists.txt");
+    let contents = fs::read_to_string(&cmake_lists).expect("failed to read libtiff CMakeLists.txt");
+    fs::write(&cmake_lists, contents.replace("LANGUAGES C CXX", "LANGUAGES C"))
+        .expect("failed to patch libtiff CMakeLists.txt");
+
+    source_dir
+}
+
+fn copy_dir(from: &Path, to: &Path) {
+    fs::create_dir_all(to).expect("failed to create bundled libtiff source copy");
+    for entry in fs::read_dir(from).expect("failed to read bundled libtiff source") {
+        let entry = entry.expect("failed to read bundled libtiff source entry");
+        let file_type = entry.file_type().expect("failed to read bundled libtiff file type");
+        let target = to.join(entry.file_name());
+        if file_type.is_dir() {
+            copy_dir(&entry.path(), &target);
+        } else if file_type.is_file() {
+            fs::copy(entry.path(), target).expect("failed to copy bundled libtiff source file");
+        }
+    }
 }
 
 fn print_bundled_link_lib() {
