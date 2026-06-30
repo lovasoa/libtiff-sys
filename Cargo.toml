@@ -1,0 +1,42 @@
+[package]
+name = "libtiff-sys"
+version = "0.1.0"
+edition = "2021"
+links = "tiff"
+build = "build.rs"
+readme = "README.md"
+description = "Low-level Rust FFI bindings for libtiff"
+repository = "https://github.com/lovasoa/libtiff-sys"
+license-file = "LICENSE.md"
+categories = ["external-ffi-bindings", "multimedia::images"]
+keywords = ["tiff", "libtiff", "ffi", "image"]
+include = [
+    "Cargo.toml",
+    "LICENSE.md",
+    "README.md",
+    "build.rs",
+    "wrapper.h",
+    "src/**",
+    "tests/**",
+    "examples/**",
+    "libtiff/CMakeLists.txt",
+    "libtiff/LICENSE.md",
+    "libtiff/README.md",
+    "libtiff/VERSION",
+    "libtiff/RELEASE-DATE",
+    "libtiff/cmake/**",
+    "libtiff/libtiff/**",
+    "libtiff/port/**",
+]
+
+[features]
+static = []
+dynamic = []
+
+[dependencies]
+libc = "0.2"
+
+[build-dependencies]
+bindgen = "0.69"
+cmake = "0.1"
+pkg-config = "0.3"
