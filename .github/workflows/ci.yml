@@ -94,7 +94,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo package --locked --allow-dirty
       - name: Verify package contents can build without network
-        run: cargo test --locked --offline --manifest-path target/package/libtiff-sys-0.1.0/Cargo.toml
+        run: cargo test --locked --offline --manifest-path target/package/libtiff-sys-$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')/Cargo.toml
 
   no-submodule-system:
     name: builds without submodule when system libtiff is explicit
