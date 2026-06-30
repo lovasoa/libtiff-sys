@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  native:
+    name: native ${{ matrix.os }} ${{ matrix.mode }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            mode: bundled
+            command: cargo test --locked --all-targets
+          - os: ubuntu-latest
+            mode: dynamic-pkg-config
+            packages: libtiff-dev pkg-config
+            link_env: TIFF_DYNAMIC=1
+            command: cargo test --locked --all-targets --features dynamic
+          - os: ubuntu-latest
+            mode: static-pkg-config
+            packages: libtiff-dev pkg-config
+            link_env: TIFF_STATIC=1
+            command: cargo test --locked --all-targets --features static
+          - os: macos-latest
+            mode: bundled
+            command: cargo test --locked --all-targets
+          - os: macos-latest
+            mode: homebrew-dynamic
+            packages: libtiff pkg-config
+            link_env: TIFF_DYNAMIC=1
+            command: cargo test --locked --all-targets --features dynamic
+          - os: windows-latest
+            mode: bundled-msvc
+            command: cargo test --locked --all-targets
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Ubuntu packages
+        if: runner.os == 'Linux' && matrix.packages != ''
+        run: sudo apt-get update && sudo apt-get install -y ${{ matrix.packages }}
+      - name: Install Homebrew packages
+        if: runner.os == 'macOS' && matrix.packages != ''
+        run: brew install ${{ matrix.packages }}
+      - name: Run tests
+        shell: bash
+        run: ${{ matrix.command }}
+        env:
+          TIFF_DYNAMIC: ${{ contains(matrix.link_env, 'TIFF_DYNAMIC=1') && '1' || '' }}
+          TIFF_STATIC: ${{ contains(matrix.link_env, 'TIFF_STATIC=1') && '1' || '' }}
+
+  examples:
+    name: examples exercise real files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo run --locked --example write_gray -- /tmp/libtiff-sys-example.tif
+      - run: cargo run --locked --example read_info -- /tmp/libtiff-sys-example.tif
+
+  package:
+    name: package tarball builds offline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo package --locked --allow-dirty
+      - name: Verify package contents can build without network
+        run: cargo test --locked --offline --manifest-path target/package/libtiff-sys-0.1.0/Cargo.toml
+
+  cross:
+    name: cross ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            packages: musl-tools
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            packages: gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+            linker: aarch64-linux-gnu-gcc
+            cxx: aarch64-linux-gnu-g++
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Install Ubuntu cross packages
+        if: runner.os == 'Linux' && matrix.packages != ''
+        run: sudo apt-get update && sudo apt-get install -y ${{ matrix.packages }}
+      - name: Configure cross linker
+        if: matrix.linker != ''
+        shell: bash
+        run: |
+          target_env=$(echo '${{ matrix.target }}' | tr '[:lower:]-' '[:upper:]_')
+          echo "CARGO_TARGET_${target_env}_LINKER=${{ matrix.linker }}" >> "$GITHUB_ENV"
+          echo "CC_${{ matrix.target }}=${{ matrix.linker }}" >> "$GITHUB_ENV"
+          echo "CXX_${{ matrix.target }}=${{ matrix.cxx }}" >> "$GITHUB_ENV"
+      - name: Build for target
+        run: cargo check --locked --target ${{ matrix.target }}
+
+  minimal-versions:
+    name: minimal supported dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo update -Z minimal-versions
+      - run: cargo test --all-targets
