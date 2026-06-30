@@ -20,6 +20,7 @@ include = [
     "tests/**",
     "examples/**",
     "libtiff/CMakeLists.txt",
+    "libtiff/build/**",
     "libtiff/configure.ac",
     "libtiff/LICENSE.md",
     "libtiff/README.md",
@@ -27,6 +28,7 @@ include = [
     "libtiff/RELEASE-DATE",
     "libtiff/cmake/**",
     "libtiff/libtiff/**",
+    "libtiff/libtiff-4.pc.in",
     "libtiff/port/**",
 ]
 

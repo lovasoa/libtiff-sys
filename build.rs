@@ -56,14 +56,15 @@ fn try_pkg_config(link_static: bool) -> Option<PathBuf> {
 }
 
 fn build_bundled_libtiff() -> PathBuf {
-    let dst = cmake::Config::new("libtiff")
+    let mut config = cmake::Config::new("libtiff");
+    config
         .define("BUILD_SHARED_LIBS", "OFF")
-        .define("CMAKE_PROJECT_libtiff_LANGUAGES", "C")
         .define("tiff-tools", "OFF")
         .define("tiff-tests", "OFF")
         .define("tiff-contrib", "OFF")
         .define("tiff-docs", "OFF")
         .define("tiff-deprecated", "OFF")
+        .define("tiff-cxx", "OFF")
         .define("zlib", "OFF")
         .define("deflate", "OFF")
         .define("jpeg", "OFF")
@@ -72,15 +73,25 @@ fn build_bundled_libtiff() -> PathBuf {
         .define("lzma", "OFF")
         .define("zstd", "OFF")
         .define("webp", "OFF")
-        .define("cxx", "OFF")
-        .define("CMAKE_POSITION_INDEPENDENT_CODE", "ON")
-        .build();
+        .define("CMAKE_POSITION_INDEPENDENT_CODE", "ON");
+
+    let dst = config.build();
 
     println!("cargo:rustc-link-search=native={}", dst.join("lib").display());
     println!("cargo:rustc-link-search=native={}", dst.join("lib64").display());
-    print_link_lib(true);
+    print_bundled_link_lib();
 
     dst.join("include")
+}
+
+fn print_bundled_link_lib() {
+    if env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc")
+        && env::var("PROFILE").as_deref() == Ok("debug")
+    {
+        println!("cargo:rustc-link-lib=static=tiffd");
+    } else {
+        println!("cargo:rustc-link-lib=static=tiff");
+    }
 }
 
 fn print_link_lib(link_static: bool) {
