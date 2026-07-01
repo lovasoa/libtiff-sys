@@ -1,6 +1,6 @@
 [package]
 name = "libtiff-sys"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 links = "tiff"
 build = "build.rs"
@@ -35,9 +35,11 @@ include = [
 [features]
 static = []
 dynamic = []
+jpeg = ["dep:mozjpeg-sys"]
 
 [dependencies]
 libc = "0.2"
+mozjpeg-sys = { version = "1", optional = true }
 
 [build-dependencies]
 bindgen = "0.69"

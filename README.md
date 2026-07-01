@@ -56,6 +56,7 @@ Cargo features are also available for simple dependency configuration:
 
 - `static`: request static linking when no env var overrides it.
 - `dynamic`: request dynamic linking when no env var overrides it.
+- `jpeg`: enable embedded JPEG compression support in bundled mode by building and statically linking [mozjpeg](https://github.com/mozilla/mozjpeg) (a drop-in libjpeg replacement) via the `mozjpeg-sys` crate. Has no effect in system library modes.
 
 Do not enable both `static` and `dynamic`. If both are enabled, `static` currently wins because Cargo features are additive and cannot be unset by downstream crates.
 
@@ -109,7 +110,7 @@ If dynamic linking succeeds at build time but your binary fails to start, check 
 Bundled mode intentionally disables optional external codecs by default:
 
 - zlib/deflate
-- JPEG
+- JPEG (can be enabled with the `jpeg` Cargo feature — see below)
 - JBIG
 - LERC
 - LZMA
@@ -117,6 +118,30 @@ Bundled mode intentionally disables optional external codecs by default:
 - WebP
 
 This keeps the fallback build self-contained and avoids accidentally detecting host libraries that are not linked into Rust binaries, which is a common `-sys` crate failure mode. If you need those codecs, use a system `libtiff` built with the desired features and point this crate at it through `pkg-config` or `TIFF_LIB_DIR`/`TIFF_INCLUDE_DIR`.
+
+### JPEG Support (Bundled Mode)
+
+Enable the `jpeg` Cargo feature to add embedded JPEG compression/decompression to the bundled libtiff build:
+
+```toml
+[dependencies]
+libtiff-sys = { version = "0.1", features = ["jpeg"] }
+```
+
+This feature works by:
+
+1. Building [mozjpeg](https://github.com/mozilla/mozjpeg) (a libjpeg-compatible library) from source via the `mozjpeg-sys` crate.
+2. Staging the compiled mozjpeg static library and headers so CMake can find them.
+3. Configuring libtiff's CMake build with `-Djpeg=ON` pointed at the staged artifacts.
+
+The result is a fully statically-linked `libtiff` with JPEG support — no system `libjpeg` required. On x86_64, mozjpeg's SIMD optimizations are compiled in automatically when NASM is available.
+
+**Limitations:**
+
+- Only applies to the **bundled** build. When using a system libtiff (`TIFF_LIB_DIR` or `pkg-config`), the `jpeg` feature is ignored — your system libtiff must already have JPEG support.
+- Build-time dependency on `mozjpeg-sys` (requires a C compiler; NASM recommended for x86_64 SIMD performance).
+- On ARM targets, SIMD is compiled separately; the build script should handle this automatically.
+- Cross-compilation with the `jpeg` feature requires a cross C compiler that can target the desired architecture.
 
 ## Cross-Compilation
 
